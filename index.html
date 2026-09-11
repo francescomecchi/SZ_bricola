@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bricola - genera token Shopify</title>
+    <style>
+        body { font-family: sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; line-height: 1.5; }
+        h1, h2 { line-height: 1.25; }
+        label { display: block; font-weight: 600; margin: 16px 0 6px; }
+        input { width: 100%; padding: 10px; box-sizing: border-box; font-size: 16px; }
+        button { margin-top: 20px; padding: 10px 18px; font-size: 16px; cursor: pointer; }
+        .note, .error { padding: 12px 16px; margin: 16px 0; }
+        .note { background: #f4f4f4; border: 1px solid #ddd; }
+        .error { background: #fdecea; border: 1px solid #f5c2c0; }
+        ol { padding-left: 20px; }
+        code { background: #f4f4f4; padding: 1px 4px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Genera il token Shopify per Bricola</h1>
+    <p>Questa pagina resta nel browser: non richiede accesso al server di Gruppo Sinergia. Alla fine Shopify mostra il token da copiare e inviare.</p>
+
+    <div class="note">
+        <h2>1. Crea e installa l'app</h2>
+        <ol>
+            <li>Apri il <a href="https://dev.shopify.com/dashboard/" target="_blank" rel="noopener">Dev Dashboard Shopify</a>.</li>
+            <li>Crea una nuova app con <strong>Start from Dev Dashboard</strong>.</li>
+            <li>Nella versione dell'app imposta gli scope:
+                <code>read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,read_locations,read_fulfillments,write_fulfillments</code>
+            </li>
+            <li>Come App URL usa <code>https://shopify.dev/apps/default-app-home</code>.</li>
+            <li>Come Redirect URL metti l'indirizzo HTTPS di <strong>questa stessa pagina</strong> (vedi campo sotto).</li>
+            <li>Rilascia la versione e installa l'app sullo store Bricola.</li>
+            <li>Da Settings copia Client ID e Client secret.</li>
+        </ol>
+    </div>
+
+    <p id="error" class="error hidden"></p>
+    <form id="connect-form">
+        <label for="shop">Dominio store</label>
+        <input id="shop" name="shop" placeholder="bricola.myshopify.com" required>
+
+        <label for="client_id">Client ID</label>
+        <input id="client_id" name="client_id" autocomplete="off" required>
+
+        <label for="client_secret">Client secret</label>
+        <input id="client_secret" name="client_secret" type="password" autocomplete="off" required>
+
+        <label for="redirect_uri">Redirect URL di questa pagina</label>
+        <input id="redirect_uri" name="redirect_uri" required>
+
+        <button type="submit">Collega Shopify e genera il token</button>
+    </form>
+
+    <form id="token-form" method="post" class="hidden">
+        <input type="hidden" name="client_id">
+        <input type="hidden" name="client_secret">
+        <input type="hidden" name="code">
+        <p>Autorizzazione ricevuta. Clicca il pulsante per far comparire il token nella pagina successiva.</p>
+        <button type="submit">Mostra il token</button>
+    </form>
+
+    <div class="note">
+        <h2>2. Invia il token</h2>
+        <p>Dopo il pulsante Shopify apre una pagina JSON. Copia il valore di <code>access_token</code> e invialo a Gruppo Sinergia insieme al dominio dello store.</p>
+        <p>Se Shopify risponde con un errore <code>shop_not_permitted</code>, l'app non e' stata creata nell'organizzazione dello store: ricrea l'app dal Dev Dashboard del merchant e reinstallala.</p>
+    </div>
+
+    <script>
+        var SCOPES = [
+            'read_orders',
+            'write_orders',
+            'read_products',
+            'write_products',
+            'read_inventory',
+            'write_inventory',
+            'read_locations',
+            'read_fulfillments',
+            'write_fulfillments'
+        ].join(',');
+
+        function showError(message) {
+            var el = document.getElementById('error');
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function normalizeShop(shop) {
+            shop = (shop || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+            if (shop && shop.indexOf('.myshopify.com') === -1) {
+                shop += '.myshopify.com';
+            }
+            return shop;
+        }
+
+        function currentPageUrl() {
+            return window.location.origin + window.location.pathname;
+        }
+
+        function parseQuery() {
+            var params = {};
+            window.location.search.replace(/^\?/, '').split('&').forEach(function (part) {
+                if (!part) return;
+                var pair = part.split('=');
+                params[decodeURIComponent(pair[0])] = decodeURIComponent((pair[1] || '').replace(/\+/g, ' '));
+            });
+            return params;
+        }
+
+        document.getElementById('redirect_uri').value = currentPageUrl();
+
+        var query = parseQuery();
+        if (query.code && query.shop) {
+            var saved = {};
+            try {
+                saved = JSON.parse(sessionStorage.getItem('bricola_oauth') || '{}');
+            } catch (e) {
+                saved = {};
+            }
+
+            if (!saved.state || saved.state !== query.state) {
+                showError('State OAuth non valido. Ripeti il collegamento da questa pagina.');
+            } else {
+                document.getElementById('connect-form').classList.add('hidden');
+                var tokenForm = document.getElementById('token-form');
+                tokenForm.classList.remove('hidden');
+                tokenForm.action = 'https://' + normalizeShop(query.shop) + '/admin/oauth/access_token';
+                tokenForm.client_id.value = saved.client_id || '';
+                tokenForm.client_secret.value = saved.client_secret || '';
+                tokenForm.code.value = query.code;
+            }
+        }
+
+        document.getElementById('connect-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var shop = normalizeShop(document.getElementById('shop').value);
+            var clientId = document.getElementById('client_id').value.trim();
+            var clientSecret = document.getElementById('client_secret').value.trim();
+            var redirectUri = document.getElementById('redirect_uri').value.trim();
+            var state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+            if (!shop || !clientId || !clientSecret || !redirectUri) {
+                showError('Compila tutti i campi.');
+                return;
+            }
+
+            sessionStorage.setItem('bricola_oauth', JSON.stringify({
+                state: state,
+                client_id: clientId,
+                client_secret: clientSecret
+            }));
+
+            var url = 'https://' + shop + '/admin/oauth/authorize?' + new URLSearchParams({
+                client_id: clientId,
+                scope: SCOPES,
+                redirect_uri: redirectUri,
+                state: state
+            }).toString();
+
+            window.location.href = url;
+        });
+    </script>
+</body>
+</html>
