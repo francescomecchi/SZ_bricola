@@ -10,11 +10,31 @@
         label { display: block; font-weight: 600; margin: 16px 0 6px; }
         input { width: 100%; padding: 10px; box-sizing: border-box; font-size: 16px; }
         button { margin-top: 20px; padding: 10px 18px; font-size: 16px; cursor: pointer; }
-        .note, .error { padding: 12px 16px; margin: 16px 0; }
+        .note, .error { padding: 12px 16px; margin: 16px 0; overflow: hidden; }
         .note { background: #f4f4f4; border: 1px solid #ddd; }
         .error { background: #fdecea; border: 1px solid #f5c2c0; }
         ol { padding-left: 20px; }
-        code { background: #f4f4f4; padding: 1px 4px; }
+        code { background: #fff; padding: 1px 4px; word-break: break-word; }
+        .scope-box { margin: 12px 0 8px; }
+        .scope-box label { margin-top: 0; }
+        .scope-list {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 6.5em;
+            margin: 6px 0 8px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            resize: vertical;
+        }
+        .scope-box button { margin-top: 0; }
         .hidden { display: none; }
     </style>
 </head>
@@ -27,14 +47,17 @@
         <ol>
             <li>Apri il <a href="https://dev.shopify.com/dashboard/" target="_blank" rel="noopener">Dev Dashboard Shopify</a>.</li>
             <li>Crea una nuova app con <strong>Start from Dev Dashboard</strong>.</li>
-            <li>Nella versione dell'app imposta gli scope:
-                <code>read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,read_locations,read_fulfillments,write_fulfillments,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders</code>
-            </li>
+            <li>Nella versione dell'app incolla gli scope dal riquadro sotto (lista con virgole, da copiare intera).</li>
             <li>Come App URL usa <code>https://shopify.dev/apps/default-app-home</code>.</li>
             <li>Come Redirect URL metti l'indirizzo HTTPS di <strong>questa stessa pagina</strong> (vedi campo sotto).</li>
             <li>Rilascia la versione e installa l'app sullo store Bricola.</li>
             <li>Da Settings copia Client ID e Client secret.</li>
         </ol>
+        <div class="scope-box">
+            <label for="scopes-field">Scope da copiare</label>
+            <textarea id="scopes-field" class="scope-list" readonly rows="5"></textarea>
+            <button type="button" id="copy-scopes">Copia scope</button>
+        </div>
     </div>
 
     <p id="error" class="error hidden"></p>
@@ -111,7 +134,23 @@
             return params;
         }
 
+        document.getElementById('scopes-field').value = SCOPES;
         document.getElementById('redirect_uri').value = currentPageUrl();
+
+        document.getElementById('copy-scopes').addEventListener('click', function () {
+            var field = document.getElementById('scopes-field');
+            field.select();
+            field.setSelectionRange(0, field.value.length);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(SCOPES).then(function () {
+                    document.getElementById('copy-scopes').textContent = 'Copiati';
+                }).catch(function () {
+                    document.execCommand('copy');
+                });
+            } else {
+                document.execCommand('copy');
+            }
+        });
 
         var query = parseQuery();
         if (query.code && query.shop) {
