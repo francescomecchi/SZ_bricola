@@ -28,7 +28,7 @@
             <li>Apri il <a href="https://dev.shopify.com/dashboard/" target="_blank" rel="noopener">Dev Dashboard Shopify</a>.</li>
             <li>Crea una nuova app con <strong>Start from Dev Dashboard</strong>.</li>
             <li>Nella versione dell'app imposta gli scope:
-                <code>read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,read_locations,read_fulfillments,write_fulfillments</code>
+                <code>read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,read_locations,read_fulfillments,write_fulfillments,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders</code>
             </li>
             <li>Come App URL usa <code>https://shopify.dev/apps/default-app-home</code>.</li>
             <li>Come Redirect URL metti l'indirizzo HTTPS di <strong>questa stessa pagina</strong> (vedi campo sotto).</li>
@@ -78,7 +78,9 @@
             'write_inventory',
             'read_locations',
             'read_fulfillments',
-            'write_fulfillments'
+            'write_fulfillments',
+            'read_merchant_managed_fulfillment_orders',
+            'write_merchant_managed_fulfillment_orders'
         ].join(',');
 
         function showError(message) {
